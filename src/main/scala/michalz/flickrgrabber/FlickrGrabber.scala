@@ -1,15 +1,16 @@
 package michalz.flickrgrabber
 
+import akka.Done
 import akka.actor.ActorSystem
+import akka.pattern.after
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import com.typesafe.scalalogging.LazyLogging
 import michalz.flickrgrabber.config.FlickGrabberConfig
 import michalz.flickrgrabber.stream.FlickrGrabberStream
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /**
   * Created by michal on 23.11.16.
@@ -26,27 +27,26 @@ object FlickrGrabber extends App with LazyLogging {
 
   val stream = FlickrGrabberStream(fgConfig)
 
-
   val resp = stream.run()
-
-  Await.ready(resp, Duration.Inf).foreach {
-    case Left(ex) => logger.warn("error", ex)
-    case Right(nodes) => logger.info(s"Response: $nodes")
-  }
-
-
-
-  sys.addShutdownHook {
-    shutdown()
-  }
-
+  Await.ready(resp, Duration.Inf)
 
   shutdown()
-  logger.info("Finished")
-
 
   def shutdown() = {
-    val endFuture = Http().shutdownAllConnectionPools().recover { case _ => ()}.flatMap(_ => system.terminate() )
-    Await.ready(endFuture, Duration.Inf)
+    Thread.sleep(10000)
+    logger.info("Shutdown called")
+
+    val terminatedFuture = for {
+      _ <- Http().shutdownAllConnectionPools().recover {
+        case ex =>
+          logger.warn("Exception during shutdown connections", ex)
+          ()
+      }
+      _ <- after(FiniteDuration.apply(1, "second"), system.scheduler)(Future.successful(Done))
+      _ = materializer.shutdown()
+      actorSystemTermination <- system.terminate()
+    } yield actorSystemTermination
+
+    Await.ready(terminatedFuture, Duration.Inf)
   }
 }
