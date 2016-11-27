@@ -33,16 +33,10 @@ object FlickrGrabber extends App with LazyLogging {
   shutdown()
 
   def shutdown() = {
-    Thread.sleep(10000)
     logger.info("Shutdown called")
 
     val terminatedFuture = for {
-      _ <- Http().shutdownAllConnectionPools().recover {
-        case ex =>
-          logger.warn("Exception during shutdown connections", ex)
-          ()
-      }
-      _ <- after(FiniteDuration.apply(1, "second"), system.scheduler)(Future.successful(Done))
+      _ <- Http().shutdownAllConnectionPools()
       _ = materializer.shutdown()
       actorSystemTermination <- system.terminate()
     } yield actorSystemTermination

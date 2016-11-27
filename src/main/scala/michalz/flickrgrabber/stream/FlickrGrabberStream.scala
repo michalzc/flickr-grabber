@@ -1,6 +1,5 @@
 package michalz.flickrgrabber.stream
 
-import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport
@@ -10,6 +9,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.typesafe.scalalogging.LazyLogging
 import michalz.flickrgrabber.config.FlickGrabberConfig
+import michalz.flickrgrabber.model.{ApiResponse, SearchPhotoResponse}
+import michalz.flickrgrabber.protocol.FlickrApiXmlSupport
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -18,7 +19,7 @@ import scala.xml.NodeSeq
 /**
  * Created by michal on 24.11.16.
  */
-object FlickrGrabberStream extends ScalaXmlSupport with LazyLogging {
+object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
   def apply(fgConfig: FlickGrabberConfig)(implicit system: ActorSystem, materializer: Materializer) = {
 
     implicit val executionContext = system.dispatcher
@@ -38,14 +39,14 @@ object FlickrGrabberStream extends ScalaXmlSupport with LazyLogging {
 
     source
       .via(httpFlow)
-      .mapAsync(1)(tup => deserialize[NodeSeq](tup._1))
+      .mapAsync(1)(tup => deserialize[ApiResponse[SearchPhotoResponse]](tup._1))
       .via(printFlow)
       .toMat(Sink.ignore)(Keep.right)
   }
 
   def deserialize[T](tr: Try[HttpResponse])(implicit executionContext: ExecutionContext, um: Unmarshaller[ResponseEntity, T], materializer: Materializer): Future[Either[Throwable, T]] = tr match {
-    case Success(r) =>
-      Unmarshal(r.entity).to[T].map(Right.apply).recover { case e: Throwable => Left(e) }
+    case Success(response) =>
+      Unmarshal(response.entity).to[T].map(Right.apply).recover { case e: Throwable => Left(e) }
 
     case Failure(ex) =>
       Future.successful(Left(ex))
