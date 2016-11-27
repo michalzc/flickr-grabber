@@ -1,6 +1,5 @@
 package michalz.flickrgrabber.protocol
 
-import michalz.flickrgrabber.model
 import michalz.flickrgrabber.model.{Photo, ResponseStatus}
 import org.scalatest.{FunSpec, Matchers}
 

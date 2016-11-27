@@ -11,6 +11,7 @@ val dependencies = Seq(
   akkaGroup %% "akka-http-xml" % akkaHttpVersion,
   "ch.qos.logback" % "logback-classic" % "1.1.7",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+  "com.github.slugify" % "slugify" % "2.1.7",
 
   //test
   "org.scalatest" %% "scalatest" % "3.0.1" % "test"

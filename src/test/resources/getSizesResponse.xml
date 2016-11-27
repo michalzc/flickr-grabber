@@ -1,0 +1,9 @@
+<rsp stat="ok">
+    <sizes candownload="1" canprint="0" canblog="0">
+        <size media="photo" url="https://www.flickr.com/photos/127512010@N06/16056233515/sizes/sq/" source="https://farm8.staticflickr.com/7573/16056233515_a04a13aa18_s.jpg" height="75" width="75" label="Square"/>
+        <size media="photo" url="https://www.flickr.com/photos/127512010@N06/16056233515/sizes/q/" source="https://farm8.staticflickr.com/7573/16056233515_a04a13aa18_q.jpg" height="150" width="150" label="Large Square"/>
+        <size media="photo" url="https://www.flickr.com/photos/127512010@N06/16056233515/sizes/t/" source="https://farm8.staticflickr.com/7573/16056233515_a04a13aa18_t.jpg" height="66" width="100" label="Thumbnail"/>
+        <size media="photo" url="https://www.flickr.com/photos/127512010@N06/16056233515/sizes/s/" source="https://farm8.staticflickr.com/7573/16056233515_a04a13aa18_m.jpg" height="120" width="181" label="Small"/>
+        <size media="photo" url="https://www.flickr.com/photos/127512010@N06/16056233515/sizes/o/" source="https://farm8.staticflickr.com/7573/16056233515_e4c98650f0_o.jpg" height="120" width="181" label="Original"/>
+    </sizes>
+</rsp>
