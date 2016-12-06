@@ -9,13 +9,23 @@ object UriMethods {
 
   val apiUrl = Uri("https://api.flickr.com/services/rest/")
 
-  def getFeaturedPhotos(perPage: Int = 10)(implicit apiKey: ApiKey) = {
+  def getHotTags(count: Int = 20)(implicit apiKey: ApiKey) = {
+    apiUrl.withQuery(Uri.Query(
+      "method" -> "flickr.tags.getHotList",
+      "api_key" -> apiKey.key,
+      "count" -> count.toString,
+      "period" -> "week"
+    ))
+  }
+
+  def getFeaturedPhotos(perPage: Int = 10, tags: List[String] = List.empty)(implicit apiKey: ApiKey) = {
     apiUrl.withQuery(Uri.Query(
       "method" -> "flickr.photos.search",
       "api_key" -> apiKey.key,
-      "tags" -> "featured",
-      "sort" -> "interestingness-asc",
-      "per_page" -> perPage.toString
+      "tags" -> (if(tags.isEmpty) "featured" else tags.mkString(",")),
+      "per_page" -> perPage.toString,
+      "content_type" -> "1",
+      "sort" -> " interestingness-desc"
     ))
   }
 

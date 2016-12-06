@@ -19,8 +19,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
- * Created by michal on 24.11.16.
- */
+  * Created by michal on 24.11.16.
+  */
 object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
   val slugify = new Slugify()
 
@@ -32,7 +32,7 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
     val httpSearchFlow = Http().superPool[NotUsed]()
     val httpInfoFlow = Http().superPool[PhotoInfo]()
 
-    val requestUri = UriMethods.getFeaturedPhotos(nrOfImages)
+    val requestUri = UriMethods.getHotTags()
     val request = HttpRequest(uri = requestUri)
 
     val source = Source.single(request -> NotUsed)
@@ -40,6 +40,14 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
     val sink = Sink.fold(0L) { (acc, elem: Long) => acc + elem }
 
     source
+        .log("hot tags request")
+      .via(httpSearchFlow)
+      .mapAsync(1)(tup => deserialize[ApiResponse[HotTagsResponse]](tup._1))
+      .map(extractTags)
+      .via(printErrors)
+      .collect { case Right(hotTags) => hotTags }
+      .map(hotTags => HttpRequest(uri = UriMethods.getFeaturedPhotos(tags = hotTags.tags.map(_.name), perPage = fgConfig.nrOfImages)) -> NotUsed)
+        .log("search request")
       .via(httpSearchFlow)
       .mapAsync(1)(tup => deserialize[ApiResponse[SearchPhotoResponse]](tup._1))
       .via(extractPhotos)
@@ -62,6 +70,10 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
       .toMat(sink)(Keep.right)
   }
 
+  def extractTags(ent: Either[Throwable, ApiResponse[HotTagsResponse]]): Either[String, HotTagsResponse] = {
+    ent.left.map(ex => s"Failure during getting hot tags: $ex").flatMap(resp => resp.content.left.map(resp => s"Failure during extracting hot tags: ${resp.code} => ${resp.msg}"))
+  }
+
   def downloadImages(entity: ResponseEntity, photoInfo: PhotoInfo)(implicit ec: ExecutionContext, mat: Materializer): Future[Either[String, Long]] = {
     val fileName = photoInfo.fileName.get
     val path = Paths.get("images", fileName)
@@ -69,7 +81,7 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
     entity.dataBytes.runWith(sink).map { res =>
       res.status match {
         case Success(Done) => Right(res.count)
-        case Failure(ex)   => Left(s"Error during saving image ${fileName}: $ex")
+        case Failure(ex) => Left(s"Error during saving image ${fileName}: $ex")
       }
     }.recover {
       case ex: Throwable => Left(s"Error during downloading image ${photoInfo.url}: $ex")
@@ -79,7 +91,7 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
   def clearResponse(resp: Try[HttpResponse], photoInfo: PhotoInfo): Either[String, (ResponseEntity, PhotoInfo)] = resp match {
     case Success(response) => response.status match {
       case StatusCodes.OK => Right(response.entity -> photoInfo)
-      case unknown        => Left(s"Unknown response code $unknown for image ${photoInfo.url}")
+      case unknown => Left(s"Unknown response code $unknown for image ${photoInfo.url}")
     }
     case Failure(ex) => Left(s"Error during getting image: ${photoInfo.url}, $ex")
   }

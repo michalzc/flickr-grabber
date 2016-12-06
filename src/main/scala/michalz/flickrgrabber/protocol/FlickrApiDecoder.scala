@@ -35,4 +35,5 @@ trait FlickrApiDecoder[T] {
 object FlickrApiDecoder {
   implicit val searchPhotoResponseDecoder = new SearchPhotoResponseDecoder
   implicit val photoSizesResponseDecoder = new PhotoSizesResponseDecoder
+  implicit val hotTagsResponseDecoder = new HotTagsDecoder
 }

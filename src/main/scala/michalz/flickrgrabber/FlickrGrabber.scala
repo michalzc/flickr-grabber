@@ -1,5 +1,7 @@
 package michalz.flickrgrabber
 
+import java.nio.file.{Files, Paths}
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
@@ -24,7 +26,9 @@ object FlickrGrabber extends App with LazyLogging {
 
   val fgConfig = FlickGrabberConfig(system.settings.config)
 
-  val stream = FlickrGrabberStream(fgConfig, 500)
+
+  checkAndCreateDirectory(fgConfig.downloadDir)
+  val stream = FlickrGrabberStream(fgConfig, fgConfig.nrOfImages)
 
   val resp = stream.run()
   Await.ready(resp, Duration.Inf).onComplete {
@@ -44,5 +48,12 @@ object FlickrGrabber extends App with LazyLogging {
     } yield actorSystemTermination
 
     Await.ready(terminatedFuture, Duration.Inf)
+  }
+
+  def checkAndCreateDirectory(dir: String): Unit = {
+    val path = Paths.get(dir)
+    if(!(Files.exists(path) && Files.isDirectory(path))) {
+      Files.createDirectory(path)
+    }
   }
 }
