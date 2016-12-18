@@ -40,14 +40,12 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
     val sink = Sink.fold(0L) { (acc, elem: Long) => acc + elem }
 
     source
-        .log("hot tags request")
       .via(httpSearchFlow)
       .mapAsync(1)(tup => deserialize[ApiResponse[HotTagsResponse]](tup._1))
       .map(extractTags)
       .via(printErrors)
       .collect { case Right(hotTags) => hotTags }
       .map(hotTags => HttpRequest(uri = UriMethods.getFeaturedPhotos(tags = hotTags.tags.map(_.name), perPage = fgConfig.nrOfImages)) -> NotUsed)
-        .log("search request")
       .via(httpSearchFlow)
       .mapAsync(1)(tup => deserialize[ApiResponse[SearchPhotoResponse]](tup._1))
       .via(extractPhotos)
@@ -55,16 +53,16 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
       .collect { case Right(photoInfo) => photoInfo }
       .map(mapToSizeRequest)
       .via(httpInfoFlow)
-      .mapAsync(10)(tup => deserialize[ApiResponse[PhotoSizesResponse]](tup._1).map(_ -> tup._2))
+      .mapAsync(1)(tup => deserialize[ApiResponse[PhotoSizesResponse]](tup._1).map(_ -> tup._2))
       .via(extractSizes)
       .via(printErrors)
       .collect { case Right(info) => info }
-      .map(info => (HttpRequest(uri = info.url.get) -> info))
+      .map(info => (HttpRequest(uri = info.url.get)) -> info)
       .via(httpInfoFlow)
       .map { case (tr, info) => clearResponse(tr, info) }
       .via(printErrors)
       .collect { case Right(i) => i }
-      .mapAsync(10) { case (ent, info) => downloadImages(ent.withoutSizeLimit(), info) }
+      .mapAsync(1) { case (ent, info) => downloadImages(ent.withoutSizeLimit(), info) }
       .via(printErrors)
       .collect { case Right(bytes) => bytes }
       .toMat(sink)(Keep.right)
@@ -88,10 +86,11 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
     }
   }
 
-  def clearResponse(resp: Try[HttpResponse], photoInfo: PhotoInfo): Either[String, (ResponseEntity, PhotoInfo)] = resp match {
+  def clearResponse(resp: Try[HttpResponse], photoInfo: PhotoInfo)(implicit materializer: Materializer): Either[String, (ResponseEntity, PhotoInfo)] = resp match {
     case Success(response) => response.status match {
       case StatusCodes.OK => Right(response.entity -> photoInfo)
-      case unknown => Left(s"Unknown response code $unknown for image ${photoInfo.url}")
+      case unknown =>
+        Left(s"Unknown response code $unknown for image ${photoInfo.url}")
     }
     case Failure(ex) => Left(s"Error during getting image: ${photoInfo.url}, $ex")
   }
@@ -108,7 +107,7 @@ object FlickrGrabberStream extends FlickrApiXmlSupport with LazyLogging {
   }
 
   def deserialize[T](tr: Try[HttpResponse])(implicit executionContext: ExecutionContext, um: Unmarshaller[ResponseEntity, T], materializer: Materializer): Future[Either[Throwable, T]] = tr match {
-    case Success(response) =>
+    case Success(response) if (response.status == StatusCodes.OK) =>
       Unmarshal(response.entity).to[T].map(Right.apply).recover { case e: Throwable => Left(e) }
 
     case Failure(ex) =>
